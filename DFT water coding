@@ -1,0 +1,81 @@
+DFT Script for H₂O Molecule Using ASE and GPAW
+
+# Import necessary libraries from ASE and GPAW
+from ase import Atoms
+from ase.build import molecule
+from ase.calculators.gpaw import GPAW, PW
+from ase.optimize import BFGS
+from ase.io import write
+from ase.units import kJ, mol
+import os
+
+# Helper function for logging and error handling
+def log_and_print(message):
+    print(message)
+    with open("dft_log.txt", "a") as log_file:
+        log_file.write(message + "\n")
+
+# Step 1: Define the water molecule (H2O)
+try:
+    h2o = molecule('H2O')
+    log_and_print("Molecule defined successfully.")
+except Exception as e:
+    log_and_print(f"Error in molecule definition: {str(e)}")
+
+# Step 2: Define GPAW calculator with improved settings for accuracy and performance
+try:
+    calc = GPAW(mode=PW(400),          # Higher plane wave cutoff for more accuracy
+                xc='PBE',              # Exchange-correlation functional: PBE
+                kpts=(1, 1, 1),        # Single k-point grid for molecular system
+                parallel={'band': 1},  # Parallel computation (if multiple cores available)
+                txt='h2o_gpaw_output.txt')  # Output file for calculation results
+    
+    # Attach calculator to the water molecule
+    h2o.set_calculator(calc)
+    log_and_print("Calculator initialized successfully.")
+except Exception as e:
+    log_and_print(f"Error in setting up the calculator: {str(e)}")
+
+# Step 3: Geometry optimization using BFGS
+try:
+    log_and_print("Starting geometry optimization...")
+    opt = BFGS(h2o, trajectory='h2o_optimization.traj')  # Save optimization steps to a trajectory file
+    opt.run(fmax=0.05)  # Converge until forces are less than 0.05 eV/Å
+    log_and_print("Geometry optimization completed.")
+except Exception as e:
+    log_and_print(f"Error during geometry optimization: {str(e)}")
+
+# Step 4: Calculate total energy of the optimized system
+try:
+    total_energy = h2o.get_potential_energy()
+    log_and_print(f"Total energy of the optimized system: {total_energy:.5f} eV")
+except Exception as e:
+    log_and_print(f"Error in energy calculation: {str(e)}")
+
+# Step 5: Save the optimized structure to an XYZ file
+try:
+    write('h2o_optimized.xyz', h2o)  # Save final optimized structure
+    log_and_print("Optimized structure saved as 'h2o_optimized.xyz'.")
+except Exception as e:
+    log_and_print(f"Error saving optimized structure: {str(e)}")
+
+# Step 6: Calculate HOMO-LUMO gap (if supported by GPAW version)
+try:
+    homo_lumo_gap = calc.get_homo_lumo_gap()
+    log_and_print(f"HOMO-LUMO gap: {homo_lumo_gap:.5f} eV")
+except Exception as e:
+    log_and_print(f"Error in HOMO-LUMO gap calculation: {str(e)}")
+
+# Step 7: Save checkpoint data for future use
+try:
+    calc.write('h2o_checkpoint.gpw', mode='all')  # Save the calculation checkpoint
+    log_and_print("Calculation checkpoint saved as 'h2o_checkpoint.gpw'.")
+except Exception as e:
+    log_and_print(f"Error in saving checkpoint file: {str(e)}")
+
+# Step 8: Cleanup and finalize calculation
+try:
+    calc.finalize()
+    log_and_print("Calculation finalized successfully.")
+except Exception as e:
+    log_and_print(f"Error in finalizing calculation: {str(e)}")
